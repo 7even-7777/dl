@@ -1,0 +1,111 @@
+___________________________________ONLINE VERSION_________________________________________
+
+import numpy as np
+import matplotlib.pyplot as plt
+from tensorflow.keras.datasets import mnist 
+from tensorflow.keras.models import Model  
+from tensorflow.keras.layers import Dense,Input   
+from tensorflow.keras import regularizers
+
+(x_train,_),(x_test,_) = mnist.load_data()
+
+x_train = x_train.astype("float32")/255
+x_test = x_test.astype("float32")/255
+
+x_train = x_train.reshape((len(x_train),-1))
+x_test = x_test.reshape((len(x_test),-1))
+
+input_img = Input(shape = (784,))
+encoded = Dense(128,activation = "relu",
+                activity_regularizer=regularizers.l1(1e-5))(input_img)
+encoded = Dense(64,activation = "relu")(encoded)
+latent = Dense(32,activation = "sigmoid")(encoded)
+decoded = Dense(64,activation = "relu")(latent)
+decoded = Dense(128,activation = "relu")(decoded)
+output_img = Dense(784,activation = "sigmoid")(decoded)
+
+autoencoder = Model(input_img,output_img)
+
+autoencoder.compile(optimizer = "adam",loss = "binary_crossentropy")
+
+history = autoencoder.fit(
+    x_train,x_train,epochs = 10,batch_size = 256,shuffle = True,validation_data = (x_test,x_test)
+)
+
+decoded_img = autoencoder.predict(x_test[:10])
+
+plt.figure(figsize=(20,4))
+for i in range(10):
+    ax = plt.subplot(2,10,i+1)
+    plt.imshow(x_test[i].reshape(28,28),cmap = "gray")
+    plt.axis('off')
+    
+    ax = plt.subplot(2,10,i+1+10)
+    plt.imshow(decoded_img[i].reshape(28,28),cmap = "gray")
+    plt.axis('off')
+
+plt.show()
+
+
+
+___________________________________________OFFLINE VERSION_________________________________
+
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from tensorflow.keras.models import Model  
+from tensorflow.keras.layers import Dense, Input
+from tensorflow.keras import regularizers
+from sklearn.model_selection import train_test_split
+
+data_path = "mnist/mnist.csv"
+df = pd.read_csv(data_path)
+
+X = df.drop('class', axis=1).values
+y = df['class'].values 
+
+X = X.astype("float32") / 255.0
+
+x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+print(f"Training samples: {x_train.shape[0]}")
+print(f"Testing samples: {x_test.shape[0]}")
+
+input_img = Input(shape=(784,))
+encoded = Dense(128, activation="relu",
+                activity_regularizer=regularizers.l1(1e-5))(input_img)
+encoded = Dense(64, activation="relu")(encoded)
+latent = Dense(32, activation="sigmoid")(encoded)
+
+decoded = Dense(64, activation="relu")(latent)
+decoded = Dense(128, activation="relu")(decoded)
+output_img = Dense(784, activation="sigmoid")(decoded)
+
+autoencoder = Model(inputs=input_img, outputs=output_img)
+autoencoder.compile(optimizer="adam", loss="binary_crossentropy")
+
+history = autoencoder.fit(
+    x_train, x_train,
+    epochs=10,
+    batch_size=256,
+    shuffle=True,
+    validation_data=(x_test, x_test),
+    verbose=1
+)
+
+decoded_imgs = autoencoder.predict(x_test[:10])
+
+plt.figure(figsize=(20, 4))
+for i in range(10):
+    ax = plt.subplot(2, 10, i + 1)
+    plt.imshow(x_test[i].reshape(28, 28), cmap='gray')
+    plt.title(f"Original: {y_test[i]}")
+    plt.axis('off')
+    
+    ax = plt.subplot(2, 10, i + 1 + 10)
+    plt.imshow(decoded_imgs[i].reshape(28, 28), cmap='gray')
+    plt.title("Reconstructed")
+    plt.axis('off')
+
+plt.show()

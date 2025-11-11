@@ -1,0 +1,83 @@
+import pandas as pd
+import numpy as np
+import os
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.applications import DenseNet121
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
+from tensorflow.keras.optimizers import Adam
+
+root_dir = "catsdogs"
+labels_df = pd.read_csv(os.path.join(root_dir, "labels.csv"))
+labels_df['filename'] = labels_df['id'] + '.jpg'
+
+train_dir = os.path.join(root_dir, "train")
+test_dir = os.path.join(root_dir, "test")
+
+datagen = ImageDataGenerator(rescale=1./255, validation_split=0.2)
+
+train_gen = datagen.flow_from_dataframe(
+    dataframe=labels_df,
+    directory=train_dir,
+    x_col='filename',
+    y_col='breed',
+    target_size=(224,224),
+    batch_size=32,
+    class_mode='categorical',
+    subset='training'
+)
+
+val_gen = datagen.flow_from_dataframe(
+    dataframe=labels_df,
+    directory=train_dir,
+    x_col='filename',
+    y_col='breed',
+    target_size=(224,224),
+    batch_size=32,
+    class_mode='categorical',
+    subset='validation'
+)
+
+base_model = DenseNet121(weights='imagenet', include_top=False, input_shape=(224,224,3))
+x = GlobalAveragePooling2D()(base_model.output)
+x = Dense(256, activation='relu')(x)
+output = Dense(len(train_gen.class_indices), activation='softmax')(x)
+model = Model(inputs=base_model.input, outputs=output)
+
+for layer in base_model.layers:
+    layer.trainable = False
+
+
+model.compile(optimizer=Adam(learning_rate=0.0001), loss='categorical_crossentropy', metrics=['accuracy'])
+history = model.fit(train_gen, epochs=1, validation_data=val_gen)
+print("Val Accuracy : ", model.evaluate(val_gen)[1]*100,"%")
+
+plt.figure(figsize = (10,5))
+plt.plot(history.history['accuracy'],label = 'Acccuracy')
+plt.plot(history.history['val_accuracy'],label = ' Validation Acccuracy')
+plt.title("val v/s accuracy")
+plt.xlabel("epochs")
+plt.ylabel("Accuracy")
+plt.legend()
+plt.show()
+
+import random
+
+batch_imgs, batch_labels = next(val_gen)
+batch_preds = model.predict(batch_imgs)
+batch_pred_classes = np.argmax(batch_preds, axis=1)
+batch_true_classes = np.argmax(batch_labels, axis=1)
+
+class_labels = list(val_gen.class_indices.keys())
+
+plt.figure(figsize=(15,6))
+for i in range(5):
+    plt.subplot(1,5,i+1)
+    plt.imshow(batch_imgs[i])
+    true_label = class_labels[batch_true_classes[i]]
+    pred_label = class_labels[batch_pred_classes[i]]
+    plt.title(f"P:{pred_label}\nA:{true_label}")
+    plt.axis('off')
+plt.show()
+

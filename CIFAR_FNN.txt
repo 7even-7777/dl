@@ -1,0 +1,124 @@
+______________________ONLINE VERSION_________________
+
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.datasets import cifar10
+from tensorflow.keras.layers import Dense, Flatten
+import numpy as np
+import matplotlib.pyplot as plt
+
+(x_train,y_train),(x_test,y_test) = cifar10.load_data()
+
+x_train = x_train/255
+x_test = x_test/255
+
+model = Sequential([
+    Flatten(input_shape = (32,32,3)),
+    Dense(128,activation = 'relu'),
+    Dense(64,activation = 'relu'),
+    Dense(10,activation = 'softmax')
+])
+
+model.compile(
+    optimizer = 'adam',
+    loss = 'sparse_categorical_crossentropy',
+    metrics = ['accuracy']
+)
+
+history = model.fit(x_train,y_train,epochs = 3,validation_split = 0.1)
+
+test_loss,test_acc = model.evaluate(x_test,y_test)
+print(f"{test_acc*100:.2f}%")
+pred = model.predict(x_test)
+pred_labels = np.argmax(pred,axis = 1)
+actual = y_test
+
+plt.figure(figsize=(10, 5))
+
+for i in range(10):
+    plt.subplot(2, 5, i + 1)
+    plt.imshow(x_test[i], cmap='gray')
+    plt.title(f"Pred: {pred_labels[i]}\nActual: {actual[i]}")
+    plt.axis('off')
+
+plt.tight_layout()
+
+plt.figure(figsize=(6,4))
+plt.plot(history.history['accuracy'], label='train acc')
+plt.plot(history.history['val_accuracy'], label='val acc')
+plt.title('Model Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
+
+from sklearn.metrics import confusion_matrix, classification_report
+import seaborn as sns
+
+cm = confusion_matrix(actual, pred_labels)
+plt.figure(figsize=(8,6))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+plt.title('Confusion Matrix')
+plt.xlabel('Predicted')
+plt.ylabel('True')
+plt.show()
+
+print(classification_report(actual, pred_labels))
+
+______________________________OFFLINE VERSION______________________________________
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import confusion_matrix, classification_report
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Flatten, Reshape
+from tensorflow.keras.optimizers import Adam
+
+train_df = pd.read_csv('train.csv')
+test_df = pd.read_csv('test.csv')
+
+y_train = train_df['label'].values
+X_train = train_df.drop('label', axis=1).values
+X_test = test_df.values 
+
+X_train = X_train / 255.0
+X_test = X_test / 255.0
+
+model = Sequential([
+    Reshape((32, 32, 3), input_shape=(3072,)),
+    Flatten(),
+    Dense(128, activation='relu'),
+    Dense(64, activation='relu'),
+    Dense(10, activation='softmax')
+])
+
+model.compile(optimizer=Adam(),
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+
+history = model.fit(X_train, y_train, epochs=5, validation_split=0.1, batch_size=64, verbose=1)
+
+test_loss, test_acc = model.evaluate(X_test, y_test, verbose=2)
+print(f"{test_acc*100:.2f}%")
+
+pred = model.predict(X_test)
+pred_labels = np.argmax(pred, axis=1)
+
+plt.figure(figsize=(10, 5))
+for i in range(10):
+    plt.subplot(2, 5, i + 1)
+    plt.imshow(X_test[i].reshape(32,32,3), cmap='gray')
+    plt.title(f"Pred: {pred_labels[i]}")
+    plt.axis('off')
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(6,4))
+plt.plot(history.history['accuracy'], label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Model Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.show()

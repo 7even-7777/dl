@@ -1,0 +1,49 @@
+import tensorflow as tf
+from tensorflow.keras import layers,Sequential
+import matplotlib.pyplot as plt
+
+train = r"C:\Users\niles\Downloads\cats_and_dogs_filtered\train"
+val = r"C:\Users\niles\Downloads\cats_and_dogs_filtered\validation"
+img_size = (224,224)
+
+train_d = tf.keras.utils.image_dataset_from_directory(train,image_size = img_size)
+val_d = tf.keras.utils.image_dataset_from_directory(val,image_size = img_size)
+names = train_d.class_names
+
+train_d = train_d.cache().shuffle(1000).prefetch(tf.data.AUTOTUNE)
+val_d = train_d.cache().prefetch(tf.data.AUTOTUNE)
+
+base = tf.keras.applications.EfficientNetV2B0(include_top = False,weights = "imagenet",input_shape = (224,224,3))
+base.trainable = False
+
+model = Sequential([
+    base,
+    layers.GlobalAveragePooling2D(),
+    layers.Dense(len(names),activation = 'softmax')
+])
+
+model.compile(optimizer = 'adam',loss = 'sparse_categorical_crossentropy',metrics = ['accuracy'])
+
+
+history = model.fit(train_d,validation_data = val_d,epochs = 5)
+
+print("val Acc : ",model.evaluate(val_d)[1]*100,"%")
+
+plt.figure(figsize = (10,5))
+plt.plot(history.history['accuracy'],label = 'Acccuracy')
+plt.plot(history.history['val_accuracy'],label = ' Validation Acccuracy')
+plt.title("val v/s accuracy")
+plt.xlabel("epochs")
+plt.ylabel("Accuracy")
+plt.legend()
+plt.show()
+
+for imgs,lbls in val_d.take(1):
+    preds = tf.argmax(model.predict(imgs),axis = 1)
+    plt.figure(figsize = (8,8))
+    for i in range(9):
+        plt.subplot(3,3,i+1)
+        plt.imshow(imgs[i].numpy().astype("uint8"))
+        plt.title(f"p : {names[preds[i]]}\nT: {names[lbls[i]]}")
+        plt.axis('off')
+    plt.show()

@@ -1,0 +1,56 @@
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+import numpy as np
+import matplotlib.pyplot as plt
+
+train = r"tumor/Training"
+test = r"tumor/Testing"
+
+train_gen = ImageDataGenerator(rescale = 1./255).flow_from_directory(train,target_size = (224,224),batch_size = 32,class_mode = 'categorical')
+test_gen = ImageDataGenerator(rescale = 1./255).flow_from_directory(test,target_size = (224,224),batch_size = 32,class_mode = 'categorical')
+
+model = Sequential([
+    Conv2D(64,(3,3),activation = 'relu',input_shape = (224,224,3)),
+    MaxPooling2D((2,2)),
+    Conv2D(32,(3,3),activation = 'relu'),
+    MaxPooling2D((2,2)),
+    Conv2D(16,(3,3),activation = 'relu'),
+    MaxPooling2D((2,2)),
+    Flatten(),
+    Dense(128,activation = 'relu'),
+    Dense(4,activation = 'softmax')    
+])
+
+model.compile(optimizer = 'adam',loss = 'categorical_crossentropy',metrics = ['accuracy'])
+
+history = model.fit(train_gen,validation_data = test_gen, epochs = 3)
+
+x_test,y_test = next(test_gen)
+preds = np.argmax(model.predict(x_test[:5]),axis = 1)
+actual = np.argmax(y_test[:5],axis = 1)
+
+plt.figure(figsize = (12,4))
+for i in range(5):
+    plt.subplot(1,5,i+1)
+    plt.imshow(x_test[i])
+    plt.title(f"p:{class_names[preds[i]]}\nA : {class_names[actual[i]]}")
+    plt.axis('off')
+plt.show()
+
+
+from sklearn.metrics import confusion_matrix, classification_report
+import seaborn as sns
+preds2 = np.argmax(model.predict(x_test),axis = 1)
+actual2 = np.argmax(y_test,axis = 1)
+
+cm = confusion_matrix(actual2, preds2)
+plt.figure(figsize=(8,6))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+plt.title('Confusion Matrix')
+plt.xlabel('Predicted')
+plt.ylabel('True')
+plt.show()
+
+print(classification_report(actual2, preds2))

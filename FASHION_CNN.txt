@@ -1,0 +1,134 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow.keras import layers, models
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, confusion_matrix
+import seaborn as sns
+
+train_df = pd.read_csv('fashion/train.csv')
+test_df = pd.read_csv('fashion/test.csv')
+
+y_train = train_df['label'].values
+X_train = train_df.drop('label', axis=1).values
+X_test = test_df.drop('label', axis=1).values
+y_test = test_df['label'].values
+
+X_train = X_train / 255.0
+X_test = X_test / 255.0
+
+X_train = X_train.reshape(-1, 28, 28, 1)
+X_test = X_test.reshape(-1, 28, 28, 1)
+
+model = models.Sequential([
+    layers.Conv2D(32, (3,3), activation='relu', input_shape=(28,28,1)),
+    layers.MaxPooling2D((2,2)),
+    layers.Conv2D(64, (3,3), activation='relu'),
+    layers.MaxPooling2D((2,2)),
+    layers.Conv2D(128, (3,3), activation='relu'),
+    layers.Flatten(),
+    layers.Dense(128, activation='relu'),
+    layers.Dropout(0.3),
+    layers.Dense(10, activation='softmax')  # 10 classes
+])
+
+model.compile(optimizer='adam',
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+
+history = model.fit(
+    X_train, y_train,
+    epochs=10,
+    batch_size=64,
+    validation_data=(X_test, y_test)
+)
+
+test_loss, test_acc = model.evaluate(X_test, y_test, verbose=2)
+print(f"\n Test Accuracy: {test_acc*100:.2f}%")
+
+plt.figure(figsize=(6,4))
+plt.plot(history.history['accuracy'], label='train acc')
+plt.plot(history.history['val_accuracy'], label='val acc')
+plt.title('Model Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
+
+y_pred = np.argmax(model.predict(X_test), axis=-1)
+
+cm = confusion_matrix(y_test, y_pred)
+plt.figure(figsize=(8,6))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+plt.title('Confusion Matrix')
+plt.xlabel('Predicted')
+plt.ylabel('True')
+plt.show()
+
+print(classification_report(y_test, y_pred))
+
+
+____________________________________ONLINE VERSION________________________________________
+
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense ,Flatten ,Conv2D, MaxPooling2D
+from tensorflow.keras.datasets import fashion_mnist
+import numpy as np
+import matplotlib.pyplot as plt
+
+(x_train, y_train), (x_test,y_test) = fashion_mnist.load_data()
+
+x_train = x_train.reshape(-1,28,28,1)/255
+
+x_test = x_test.reshape(-1,28,28,1)/255
+
+class_name = ['T-shirt/top','Trouser','Pullover','Dress','coat','sandal','Shirt','Sneaker','Bag','Ankle boot']
+
+model = Sequential([
+    Conv2D(32,(3,3),activation = 'relu', input_shape = (28,28,1)),
+    MaxPooling2D((2,2)),
+    Conv2D(64,(3,3),activation = 'relu'),
+    MaxPooling2D((2,2)),
+    Flatten(),
+    Dense(128,activation = 'relu'),
+    Dense(10,activation = 'softmax')
+])
+
+model.compile(
+    optimizer = 'adam',
+    loss = 'sparse_categorical_crossentropy',
+    metrics = ['accuracy']
+)
+
+test_loss,test_acc = model.evaluate(x_test,y_test)
+print(f"{test_acc*100:.2f}")
+
+plt.figure(figsize=(8,5))
+plt.plot(history.history['accuracy'], label = "accuracy") 
+plt.plot(history.history['val_accuracy'], label = "validation accuracy") 
+
+plt.title("model accuracy")
+plt.xlabel("epoch")
+plt.ylabel("Accuracy")
+plt.legend()
+plt.show()
+
+
+prediction = model.predict(x_test[:10])
+pred_labels = np.argmax(prediction, axis=1)
+actual = y_test[:10]
+
+plt.figure(figsize=(12,6))
+for i in range(10):
+    plt.subplot(2,5,i+1)
+    plt.imshow(x_test[i].reshape(28,28), cmap='gray')
+
+    pred_name = class_name[pred_labels[i]]
+    actual_name = class_name[actual[i]]
+
+    plt.title(f"Pred: {pred_name}\nActual: {actual_name}")
+    plt.axis('off')
+
+plt.tight_layout()
+plt.show()

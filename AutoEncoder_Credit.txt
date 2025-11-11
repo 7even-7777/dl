@@ -1,0 +1,71 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Dense
+from tensorflow.keras.optimizers import Adam
+
+
+data_path = "creditcard.csv"   # Change this to your file path
+df = pd.read_csv(data_path)
+
+print("Data Loaded Successfully!")
+print(df.head())
+
+df = df.drop(columns=['Sl_No', 'Customer Key'], errors='ignore')
+
+# Handle missing values if any
+df = df.fillna(df.mean())
+
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(df)
+
+print("\nFeature columns used for training:")
+print(list(df.columns))
+
+
+input_dim = X_scaled.shape[1]
+
+input_layer = Input(shape=(input_dim,))
+encoded = Dense(6, activation='relu')(input_layer)
+encoded = Dense(3, activation='relu')(encoded)   # Bottleneck layer
+decoded = Dense(6, activation='relu')(encoded)
+decoded = Dense(input_dim, activation='linear')(decoded)
+
+
+autoencoder = Model(inputs=input_layer, outputs=decoded)
+autoencoder.compile(optimizer=Adam(learning_rate=0.001), loss='mse')
+
+history = autoencoder.fit(
+    X_scaled, X_scaled,
+    epochs=50,
+    batch_size=16,
+    shuffle=True,
+    validation_split=0.2,
+    verbose=1
+)
+
+
+reconstructions = autoencoder.predict(X_scaled)
+mse = np.mean(np.power(X_scaled - reconstructions, 2), axis=1)
+
+df['Reconstruction_Error'] = mse
+
+threshold = np.percentile(mse, 95)
+print(f"\nAnomaly Threshold: {threshold:.6f}")
+
+df['Anomaly'] = (df['Reconstruction_Error'] > threshold).astype(int)
+
+print("\nNumber of Anomalies Detected:", df['Anomaly'].sum())
+print("\nAnomalous Customers (Top 10):")
+print(df[df['Anomaly'] == 1].head(10))
+
+plt.figure(figsize=(8,5))
+plt.hist(df['Reconstruction_Error'], bins=50, color='skyblue')
+plt.axvline(threshold, color='red', linestyle='--', label='Threshold')
+plt.title("Reconstruction Error Distribution")
+plt.xlabel("Reconstruction Error")
+plt.ylabel("Count")
+plt.legend()
+plt.show()
